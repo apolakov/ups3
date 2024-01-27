@@ -107,6 +107,7 @@ class RPSClient:
         """
         Disables the game buttons to prevent user interaction when not allowed.
         """
+        print("DISABLE")
         self.rock_button['state'] = tk.DISABLED
         self.paper_button['state'] = tk.DISABLED
         self.scissors_button['state'] = tk.DISABLED
@@ -169,7 +170,7 @@ class RPSClient:
         self.your_label.configure(text = f"You chose: {choice}")        
         self.status_label.configure(text = f"Wait for opponent's move'")
         self.send_data("move", choice)
-        self.disable_game_buttons
+        self.disable_game_buttons()
     
     def select_decission(self, decission):
         """
