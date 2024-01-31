@@ -113,7 +113,7 @@ void list_players()
  * @return A pointer to the buffer containing the client's game data.
  */
 char* get_client_data(int client_index, char * buffer) {
-    // Example format: "choice:rock;is_winner:1;opponent_name:Alice;opponent_choice:paper"
+    // Example format: "choice:rock;is_winner:1;opponent_name:Alice;opponent_choice:paper;"
     sprintf(buffer, "choice:%s;is_winner:%d;opponent_name:%s;opponent_choice:%s;", 
             clients[client_index].choice, 
             clients[client_index].is_winner,
@@ -245,19 +245,12 @@ void make_result(int client_index, int opponent_index)
     char lose_msg[BUFFER_SIZE];
     char draw_msg[BUFFER_SIZE];
 
-	sprintf(win_msg, "success:result=win;choice:%s;opponent:%s;opponent_choice:%s;", 
-			clients[client_index].choice, 
-			clients[client_index].opponent_name, 
-			clients[client_index].opponent_choice);
+	sprintf(win_msg, "state:result=win;");
 
-	sprintf(lose_msg, "success:result=lose;choice:%s;opponent:%s;opponent_choice:%s;", 
-			clients[client_index].choice, 
-			clients[client_index].opponent_name, 
-			clients[client_index].opponent_choice);
+	sprintf(lose_msg, "state:result=lose;");
 
-	sprintf(draw_msg, "success:result=draw;opponent:%s;choice:%s;", 
-			clients[client_index].opponent_name, 
-			clients[client_index].choice);
+	sprintf(draw_msg, "state:result=draw;");
+
 	if (winner == 0)
 	{
 		send(clients[client_index].socket_id, draw_msg, strlen(draw_msg), 0);
@@ -424,7 +417,7 @@ void send_result(int client_index)
 			if (FD_ISSET(clients[client_index].socket_id, &readfds)) {
 
 				char value[16]; 
-				bzero(received_data, 32);
+				bzero(received_data, 16);
 
 				ssize_t bytes_received = recv(clients[client_index].socket_id, received_data, sizeof(clients[client_index].choice), 0);
 
@@ -436,9 +429,13 @@ void send_result(int client_index)
 						strncpy(value, colon_pos + 1, length);
 						value[length] = '\0';						
 					} else {
+						char invalid_command_msg[] = "response:invalid;";
+						send(clients[client_index].socket_id, invalid_command_msg, strlen(invalid_command_msg), 0);
 						bytes_received=0;
 					}
 				} else {
+					char invalid_command_msg[] = "response:invalid;";
+					send(clients[client_index].socket_id, invalid_command_msg, strlen(invalid_command_msg), 0);
 					bytes_received=0;
 				}
 				if (bytes_received > 0) {
@@ -780,8 +777,7 @@ int find_free_spot()
  * @return The index of the added client in the global clients array, or -1 in case of an error.
  */
  int add_client(int socket_id) {
-    char connected_msg[] = "state:connecting;";
-    send(socket_id, connected_msg, strlen(connected_msg), 0);
+
     // Proceed to add the client to the server's client list
     printf("add_client\n");
     pthread_mutex_lock(&clients_mutex);
@@ -796,8 +792,15 @@ int find_free_spot()
     // Read client's name from socket
     char buffer[MAX_NAME_LEN + 1];  // Temporary buffer to check name length
     ssize_t bytes_received = recv(socket_id, buffer, MAX_NAME_LEN, 0);  // Read up to MAX_NAME_LEN to check for longer names
+	
+	printf("\n %zd\n", bytes_received);
+
+	printf("\n %s\n", buffer);
 
     if (bytes_received <= 0) {
+
+		char invalid_command_msg[] = "response:invalid;";
+		send(socket_id, invalid_command_msg, strlen(invalid_command_msg), 0);
         // Handle error or disconnection
         printf("Error in receiving client name or client disconnected.\n");
         close(socket_id);
@@ -807,6 +810,8 @@ int find_free_spot()
 	buffer[bytes_received] = '\0';
     // Check if the name is too long
     if (bytes_received == MAX_NAME_LEN) {
+
+		printf("NAME LONG %s", buffer);
         char too_long_msg[] = "name:long";
         send(socket_id, too_long_msg, strlen(too_long_msg), 0);
         shutdown(socket_id, SHUT_RDWR);
@@ -814,6 +819,8 @@ int find_free_spot()
         pthread_mutex_unlock(&clients_mutex);
         return -1;
     }
+
+
     // Name is acceptable, copy it to the new_player structure
     strncpy(new_player.name, buffer, MAX_NAME_LEN);
     char* newline = strchr(new_player.name, '\n');
@@ -822,6 +829,8 @@ int find_free_spot()
 	if (strncmp(new_player.name, "name:", 5) == 0) {
 		memmove(new_player.name, new_player.name + 5, strlen(new_player.name) - 4);
 	} else {
+		char invalid_command_msg[] = "response:invalid;";
+		send(socket_id, invalid_command_msg, strlen(invalid_command_msg), 0);
 		char problem_msg[] = "info:Opponent issues;";
 		send(clients[socket_id].socket_id, problem_msg, strlen(problem_msg), 0);
 		usleep(100000);
@@ -831,6 +840,7 @@ int find_free_spot()
 		return -1; // Return an error code
 	}
     printf("Received client name: %s\n", new_player.name);
+
 
     // Check for existing client with the same name
     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -861,7 +871,7 @@ int find_free_spot()
     int free_spot = find_free_spot();
     if (free_spot == -1) {
         printf("Maximum number of clients reached. Cannot add more.\n");
-        char busy_message[] = "error:ConnectionError: Server is busy. Try later;";
+        char busy_message[] = "error:server full;";
 		send(socket_id, busy_message, strlen(busy_message), 0);
         close(socket_id);
         pthread_mutex_unlock(&clients_mutex);

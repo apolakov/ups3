@@ -287,7 +287,9 @@ class RPSClient:
                 self.connection_label.update()
                 self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.client_socket.connect((self.host, self.port))
-                self.client_socket.sendall(self.player_name.strip().encode())
+                if self.player_name:
+                    self.send_data("name", self.player_name.strip())
+
                 threading.Thread(target=self.listen_to_server, daemon=True).start()
                 # messagebox.showinfo("Reconnection", "Reconnected to the server.")
                 self.connection_label.config(text=f"Reconnected to the server.")
@@ -416,7 +418,8 @@ class RPSClient:
 
                 if 'response' in item:
                     response_message = item['response']
-                    if response_message == "invalid":  
+                    if response_message == "invalid":
+                        self.root.after(0, lambda: self.display_error_and_close("Name was too long. Disconnecting..."))  
                         self.root.after(0, self.handle_opponent_disconnection)
                         break        
                     if response_message == "ok":  
@@ -485,7 +488,7 @@ class RPSClient:
                         match = re.search(r"remaining (\d+) seconds", info_message)
                         if match:
                             timeout_seconds = match.group(1)  # This is the 'X' seconds extracted from the message
-                            self.connection_label.config(text=f"You have {timeout_seconds} seconds to answer.")
+                            self.connection_label.config(text=f"Timeouts are {timeout_seconds} seconds long.")
                             self.connection_label.update()
 
 
@@ -503,8 +506,25 @@ if __name__ == "__main__":
     host = 'localhost'  # Default host
     port = 50000        # Default port
 
-    if len(sys.argv) == 3:
+    # If there are two arguments, the second one should be the port.
+    if len(sys.argv) == 2:
+        try:
+            port = int(sys.argv[1])
+            if not 1024 <= port <= 65535:
+                raise ValueError("Port number must be in the range 1024-65535.")
+        except ValueError as e:
+            print(f"Invalid port number: {sys.argv[1]}. Error: {e}")
+            sys.exit(1)  # Exit the script with an error code
+
+    # If there are three arguments, the second one is the host and the third one is the port.
+    elif len(sys.argv) == 3:
         host = sys.argv[1]
-        port = int(sys.argv[2])
+        try:
+            port = int(sys.argv[2])
+            if not 1024 <= port <= 65535:
+                raise ValueError("Port number must be in the range 1024-65535.")
+        except ValueError as e:
+            print(f"Invalid port number: {sys.argv[2]}. Error: {e}")
+            sys.exit(1)  # Exit the script with an error code
 
     client = RPSClient(host, port)
