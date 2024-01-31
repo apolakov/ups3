@@ -490,6 +490,14 @@ class RPSClient:
                             timeout_seconds = match.group(1)  # This is the 'X' seconds extracted from the message
                             self.connection_label.config(text=f"Timeouts are {timeout_seconds} seconds long.")
                             self.connection_label.update()
+                    
+                else:
+                    error_message = f"An error occurred while receiving"
+                    # Schedule the custom method to run on the main thread
+                    self.root.after(0, lambda: self.display_error_and_close(error_message))
+                    print(error_message)
+                    break
+
 
 
             except Exception as e:
@@ -510,7 +518,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         try:
             port = int(sys.argv[1])
-            if not 1024 <= port <= 65535:
+            if not 1 <= port <= 65535:
                 raise ValueError("Port number must be in the range 1024-65535.")
         except ValueError as e:
             print(f"Invalid port number: {sys.argv[1]}. Error: {e}")
@@ -521,7 +529,7 @@ if __name__ == "__main__":
         host = sys.argv[1]
         try:
             port = int(sys.argv[2])
-            if not 1024 <= port <= 65535:
+            if not 1 <= port <= 65535:
                 raise ValueError("Port number must be in the range 1024-65535.")
         except ValueError as e:
             print(f"Invalid port number: {sys.argv[2]}. Error: {e}")
